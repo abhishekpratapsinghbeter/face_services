@@ -5,10 +5,20 @@ const Descriptor = require('../models/descriptors');
 const faceapi = require('face-api.js');
 const { Canvas, Image, ImageData } = require('canvas');
 const canvas = require('canvas');
-
-
-
+const path =require('path')
+// Monkey-patch the environment for face-api.js
 faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
+
+// Load models
+const MODEL_URL = path.join(__dirname,'../models/models'); 
+const loadModels = async () => {
+  await faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_URL);
+  await faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_URL);
+};
+
+// Call loadModels when your application starts
+loadModels();
 
 // Endpoint to get photo URL by user ID
 router.get('/get-photo/:userId', async (req, res) => {
@@ -36,6 +46,7 @@ router.post('/user-faceid', async (req, res) => {
     if (!detection) {
       return res.status(400).send('No face detected');
     }
+
     const username = await Student.findOne({ student_cllgid: userId }); // Fix: await added here
     const userID1 = username._id;
     const faceDescriptor = Array.from(detection.descriptor); // Convert Float32Array to regular array
@@ -52,73 +63,51 @@ router.post('/user-faceid', async (req, res) => {
 
 // Endpoint to verify face
 router.post('/verify-face', async (req, res) => {
-    const { image, userId } = req.body;
-    try {
-      const img = await canvas.loadImage(image);
-      const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-  
-      if (!detection) {
-        return res.status(400).send('No face detected');
-      }
-  
-      const student = await Student.findOne({ student_cllgid: userId });
-  
-      if (!student) {
-        return res.status(404).send('User not found');
-      }
-  
-      const faceDescriptor = detection.descriptor;
-      const userDescriptors = await Descriptor.find({ userId: student._id });
-  
-      if (!userDescriptors.length) {
-        return res.status(404).send('No descriptors found for this user');
-      }
-  
-      // Convert descriptors to Float32Array
-      const labeledDescriptors = userDescriptors.map(d => new Float32Array(d.descriptor));
-  
-      // Find the best match for the given descriptor
-      let bestMatch = null;
-      let minDistance = Number.MAX_VALUE;
-  
-      labeledDescriptors.forEach((descriptor, index) => {
-        const distance = faceapi.euclideanDistance(faceDescriptor, descriptor);
-        if (distance < minDistance) {
-          minDistance = distance;
-          bestMatch = { distance, descriptorIndex: index };
-        }
-      });
-  
-      if (minDistance < 0.6) { // Adjust the threshold as needed
-        res.json({ success: true, match: bestMatch });
-      } else {
-        res.json({ success: false, match: bestMatch });
-      }
-    } catch (error) {
-      console.error('Error verifying face:', error);
-      res.status(500).send('Error verifying face');
-    }
-  });
-
-// Endpoint to mark attendance
-router.post('/mark-attendance', async (req, res) => {
-  const { userId } = req.body;
-
+  const { image, userId } = req.body;
   try {
+    const img = await canvas.loadImage(image);
+    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+
+    if (!detection) {
+      return res.status(400).send('No face detected');
+    }
+
     const student = await Student.findOne({ student_cllgid: userId });
 
     if (!student) {
-      return res.status(404).send('Student not found');
+      return res.status(404).send('User not found');
     }
 
-    // Mark attendance logic
-    student.attendance = student.attendance ? student.attendance + 1 : 1;
-    await student.save();
+    const faceDescriptor = detection.descriptor;
+    const userDescriptors = await Descriptor.find({ userId: student._id });
 
-    res.send('Attendance marked successfully');
+    if (!userDescriptors.length) {
+      return res.status(404).send('No descriptors found for this user');
+    }
+
+    // Convert descriptors to Float32Array
+    const labeledDescriptors = userDescriptors.map(d => new Float32Array(d.descriptor));
+
+    // Find the best match for the given descriptor
+    let bestMatch = null;
+    let minDistance = Number.MAX_VALUE;
+
+    labeledDescriptors.forEach((descriptor, index) => {
+      const distance = faceapi.euclideanDistance(faceDescriptor, descriptor);
+      if (distance < minDistance) {
+        minDistance = distance;
+        bestMatch = { distance, descriptorIndex: index };
+      }
+    });
+
+    if (minDistance < 0.6) { // Adjust the threshold as needed
+      res.json({ success: true, match: bestMatch });
+    } else {
+      res.json({ success: false, match: bestMatch });
+    }
   } catch (error) {
-    console.error('Error marking attendance:', error);
-    res.status(500).send('Error marking attendance');
+    console.error('Error verifying face:', error);
+    res.status(500).send('Error verifying face');
   }
 });
 
