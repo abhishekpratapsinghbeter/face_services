@@ -25,12 +25,7 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(require('./src/routes/face-verification'));
 
 const PORT = process.env.PORT || 5002;
-
-loadModels().then(() => {
-    console.log('Models loaded successfully');
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-    });
-}).catch(err => {
-    console.error('Error loading models:', err);
-});
+ 
+app.listen(PORT,()=>{
+    console.log(`server is running at ${PORT}`);
+})
