@@ -38,7 +38,7 @@ router.get('/get-photo/:userId', async (req, res) => {
 // Endpoint to store face descriptor
 router.post('/user-faceid', async (req, res) => {
   const { userId, imageData } = req.body;
-
+  console.log(userId,imageData)
   try {
     const img = await canvas.loadImage(imageData);
     const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
@@ -64,6 +64,8 @@ router.post('/user-faceid', async (req, res) => {
 // Endpoint to verify face
 router.post('/verify-face', async (req, res) => {
   const { image, userId } = req.body;
+  console.log(image)
+  console.log(`Received image data of size: ${image.length} characters`); 
   try {
     const img = await canvas.loadImage(image);
     const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
@@ -101,8 +103,10 @@ router.post('/verify-face', async (req, res) => {
     });
 
     if (minDistance < 0.6) { // Adjust the threshold as needed
+      console.log("success")
       res.json({ success: true, match: bestMatch });
     } else {
+      console.log("fail")
       res.json({ success: false, match: bestMatch });
     }
   } catch (error) {
