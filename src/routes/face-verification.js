@@ -35,6 +35,29 @@ router.get('/get-photo/:userId', async (req, res) => {
   }
 });
 
+router.post('/user-faceid1', async (req, res) => {
+  const { userId, imageData } = req.body;
+  console.log(userId,imageData)
+  try {
+    const img = await canvas.loadImage(imageData);
+    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+
+    if (!detection) {
+      return res.status(400).send('No face detected');
+    }
+
+    const userID1 = userId;
+    const faceDescriptor = Array.from(detection.descriptor); // Convert Float32Array to regular array
+
+    const newDescriptor = new Descriptor({ userId: userID1, descriptor: faceDescriptor });
+    await newDescriptor.save();
+
+    res.send('Face descriptor stored successfully');
+  } catch (error) {
+    console.error('Error storing face descriptor:', error);
+    res.status(500).send('Error storing face descriptor');
+  }
+});
 // Endpoint to store face descriptor
 router.post('/user-faceid', async (req, res) => {
   const { userId, imageData } = req.body;
